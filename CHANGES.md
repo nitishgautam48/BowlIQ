@@ -1,3 +1,35 @@
+# v4.1: front/back leg from either side of the pitch, 2D-anchored 3D
+
+**Leg roles no longer depend on which side the camera is on.**
+* Before, the front leg was picked from one cue (whose foot slows most at front foot contact). Filmed from the
+  bowling-arm side (e.g. a right-arm bowler running right to left), the front leg is the far, half-hidden one: that
+  cue is noisy there, and the angles could land on the wrong leg.
+* Now three label-independent cues vote (weights 2 : 1 : 1): the front foot is **ahead along the run** from FFC to
+  release (run direction measured from the hips), it **stays planted** after FFC, and it **lands** at FFC.
+* Back foot contact is checked against that. If the pose model's left/right labels point the other way at BFC (a
+  flip as the legs passed each other), the leg labels are swapped back over those frames and logged in the
+  diagnostics (and drawn in roles.mp4).
+* Tested on right- and left-arm bowlers filmed from both sides, a hidden front foot with no landing signal, and a
+  flip between BFC and FFC. On real clips and their mirror images the front-knee angle stays on the same leg
+  (within 3 deg). Regression: still 8 pass / 6 flagged / 0 fail.
+
+**3D anchored to the video's 2D keypoints.**
+* x and y of every joint are now exactly the 2D keypoints; MotionBERT supplies only the depth. Each limb gets one
+  length for the clip (median 2D length where MotionBERT has it flat to the camera, left and right averaged), and per
+  frame its depth step is sqrt(length^2 - 2D length^2), front/back from MotionBERT (smoothed so it can't flip).
+* The full MotionBERT model (170 MB, downloaded once) is now the default; `lifting.model: lite` keeps the small one.
+* 3D minus 2D on the 5 side-on clips:
+
+| Metric | v4.0 (lite, unanchored) | v4.1 (full, anchored) |
+|---|---|---|
+| front knee at FFC | -0.8, -20.6, -14.7, -14.9, -12.6 | 0.0, 0.0, 0.0, 0.0, -4.6 |
+| back knee at BFC | -24.3, -41.7, -12.9, -17.0, -16.6 | -12.2, -12.8, -0.3, -12.2, -9.0 |
+
+* So the front knee at FFC uses 3D again (`auto`, cross-checked by 2D). Back knee, knee at release and knee flexion
+  stay 2D-only (`off`) until Kinovea validation shows otherwise.
+* Two cameras: the synced second clip still adds true-3D rotations. Triangulating the whole skeleton needs both
+  cameras calibrated (their positions and lenses), which BowlIQ doesn't measure, so it isn't done.
+
 # v4.0: perception upgrade (two pose models, limb identity, 3D lifting)
 
 Angles were wrong on many clips for three architectural reasons:

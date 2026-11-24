@@ -258,28 +258,42 @@ identity:
   duplicate_jump_bh: 0.15    # … and the one that got there this far from its own predicted position is wrong
   # roles (front/back leg from the foot contacts)
   role_window_s: 0.08        # foot speed is compared over this just before vs just after FFC/BFC
-  role_margin: 0.2           # relative difference between the feet needed for a confident role
+  ahead_scale_bh: 0.15       # front foot this far ahead of the back foot (body heights) = a near-certain vote
+  speed_scale_bh: 1.0        # speed difference (body heights / s) for a near-certain planted/landing vote
+  role_strength: 0.5         # combined vote strength (0-1) for a High-confidence role
+  flip_vote: 0.5             # BFC disagreeing with FFC this strongly …
+  flip_strength: 0.5         # … while the FFC decision is at least this strong → labels flipped between contacts
 
 lifting:
   enabled: true              # 3D lifting with MotionBERT (needs PyTorch; otherwise 2D only)
+  model: full                # full (170 MB, default: more accurate) | lite (64 MB); downloads once on first use
   model_fps: 50              # MotionBERT was trained on 50 fps Human3.6M: sequences are resampled to this (real time)
   window: 243                # frames per lifting window (the model's maximum), windows overlap by half
   fp16: true                 # CUDA: run in FP16
   min_joints: 10             # a frame needs this many of the 17 joints seen to be lifted
   head_from_nose: 0.5        # without a head-top point: head = nose + this × (nose − neck)
+  # 2D anchoring: keep the video's own 2D keypoints for x/y and take only the depth from MotionBERT, solved per bone
+  # from one fixed length per limb (Taylor-style). Side-on limbs then keep their exact 2D angles.
+  anchor_2d: true
+  flat_frac: 0.25            # a bone is "flat to the camera" where MotionBERT's depth step is under this × its length:
+                             # its length = the median 2D length over those frames
+  bone_percentile: 90        # fallback when it's never flat: this percentile of its 2D length
+  sign_smooth_s: 0.06        # smoothing of MotionBERT's toward/away-from-camera signal before it picks a side
+  depth_smooth_s: 0.04       # light smoothing of the solved depths
 
 angles:
   # View-aware gating: a 2D angle is used only if the limb's plane is within plane_max_deg of the image plane (from
   # the 3D pose); otherwise the 3D value. source per metric: auto (that rule) | 3d | 2d. Set from
   # scripts/validate.py's per-metric errors against hand measurements (keep the most accurate source).
   # off = ignore the 3D value for that metric (2D only, as before v4.0).
-  # Knees default to off: on the 5 side-on regression clips (where 2D is reliable, plane 4-10 deg from the picture)
-  # MotionBERT's knees came out 12-42 deg more bent than 2D, while trunk flexion agreed within 0-4 deg. Re-enable
-  # with auto once validate.py --sources on Kinovea measurements shows 3D knees are accurate.
+  # Measured on the 5 side-on regression clips (2D reliable there), 3D minus 2D, with the full model + 2D anchoring:
+  #   front knee at FFC  0.0, 0.0, 0.0, 0.0, -4.6 deg -> auto (3D, cross-checked by 2D)
+  #   back knee at BFC   -12.2, -12.8, -0.3, -12.2, -9.0 deg -> off until Kinovea validation says otherwise
+  #   knee at release / flexion: no 2D value on those clips to compare -> off
   plane_max_deg: 20
   agree_deg: 7               # 3D and valid 2D within this: High confidence; further apart: Low
   source:
-    front_knee_angle_ffc: "off"
+    front_knee_angle_ffc: auto
     front_knee_angle_release: "off"
     front_knee_flexion_ffc_to_release: "off"
     back_knee_angle_bfc: "off"

@@ -32,9 +32,18 @@ from app.pipeline.types import J, Kinematics
 
 log = logging.getLogger("bowliq.lift3d")
 L3 = P.lifting
-CKPT_URL = ("https://huggingface.co/walterzhu/MotionBERT/resolve/main/checkpoint/pose3d/"
-            "FT_MB_lite_MB_ft_h36m_global_lite/best_epoch.bin")
-CKPT_SHA = "9811155371db4ca5d20f31a36a232d41012e12e1333882888a564d741861148f"
+_HF = "https://huggingface.co/walterzhu/MotionBERT/resolve/main/checkpoint/pose3d/"
+# lifting.model: lite (64 MB, default) or full (170 MB, slightly more accurate; both fit easily in 8 GB)
+MODELS = {
+    "lite": {"url": _HF + "FT_MB_lite_MB_ft_h36m_global_lite/best_epoch.bin", "file": "FT_MB_lite_MB_ft_h36m_global_lite.bin",
+             "sha": "9811155371db4ca5d20f31a36a232d41012e12e1333882888a564d741861148f", "dim_feat": 256, "mlp_ratio": 4},
+    "full": {"url": _HF + "FT_MB_release_MB_ft_h36m/best_epoch.bin", "file": "FT_MB_release_MB_ft_h36m.bin",
+             "sha": "597c708bd585646cc6961df057ef73634edb83a4d5c1155d98a4cc0c04e81b98", "dim_feat": 512, "mlp_ratio": 2},
+}
+
+
+def _spec() -> dict:
+    return MODELS.get(str(getattr(L3, "model", "lite")), MODELS["lite"])
 H36M = ["pelvis", "r_hip", "r_knee", "r_ankle", "l_hip", "l_knee", "l_ankle", "spine", "thorax", "nose", "head",
         "l_shoulder", "l_elbow", "l_wrist", "r_shoulder", "r_elbow", "r_wrist"]
 HJ = {n: i for i, n in enumerate(H36M)}
@@ -61,7 +70,8 @@ def _sha(p: Path) -> str:
 def ensure_checkpoint() -> Path:
     d = settings.models_dir / "motionbert"
     d.mkdir(parents=True, exist_ok=True)
-    p = d / "FT_MB_lite_MB_ft_h36m_global_lite.bin"
+    spec = _spec()
+    p = d / spec["file"]
     if p.exists() and p.stat().st_size > 10_000_000:
         return p
     with _lock:
@@ -70,14 +80,14 @@ def ensure_checkpoint() -> Path:
         tmp = p.with_suffix(".part")
         log.info("Downloading the MotionBERT checkpoint")
         try:
-            with urllib.request.urlopen(CKPT_URL, timeout=600) as r, open(tmp, "wb") as f:  # nosec B310 (fixed https URL)
+            with urllib.request.urlopen(spec["url"], timeout=600) as r, open(tmp, "wb") as f:  # noqa: S310  # nosec B310 (fixed https URLs in MODELS)
                 while chunk := r.read(1 << 20):
                     f.write(chunk)
         except OSError as exc:
             tmp.unlink(missing_ok=True)
             raise BowlIQError("MODEL_DOWNLOAD_FAILED", "Could not download the 3D lifting model.",
                               "Check the internet connection once; 2D angles are used meanwhile.", 500) from exc
-        if _sha(tmp) != CKPT_SHA:
+        if _sha(tmp) != spec["sha"]:
             tmp.unlink(missing_ok=True)
             raise BowlIQError("MODEL_INVALID", "The 3D lifting model failed its checksum.", "Delete backend/models/motionbert.", 500)
         tmp.replace(p)
@@ -90,9 +100,10 @@ def _load():
         import torch
 
         from app.pipeline.motionbert.DSTformer import DSTformer
-        m = DSTformer(dim_in=3, dim_out=3, dim_feat=256, dim_rep=512, depth=5, num_heads=8, mlp_ratio=4, num_joints=17,
-                      maxlen=243, att_fuse=True)
-        ck = torch.load(ensure_checkpoint(), map_location="cpu", weights_only=True)["model_pos"]
+        spec = _spec()
+        m = DSTformer(dim_in=3, dim_out=3, dim_feat=spec["dim_feat"], dim_rep=512, depth=5, num_heads=8,
+                      mlp_ratio=spec["mlp_ratio"], num_joints=17, maxlen=243, att_fuse=True)
+        ck = torch.load(ensure_checkpoint(), map_location="cpu", weights_only=True)["model_pos"]  # tensors only: no pickled code runs
         m.load_state_dict({k.removeprefix("module."): v for k, v in ck.items()}, strict=True)
         dev = "cuda" if torch.cuda.is_available() else "cpu"
         m = m.to(dev).eval()
@@ -211,7 +222,102 @@ def lift(kin: Kinematics) -> Optional[Lifted]:
             xyz[a:b + 1, j, d] = np.interp(t, t50, y50[:, j, d])
     covered = np.zeros(kin.n, bool)
     covered[a:b + 1] = True
+    if L3.anchor_2d:
+        xyz = anchor_to_2d(xyz, x2, conf, covered, kin.fps)
     return Lifted(xyz, covered)
+
+
+# ───────────────────────────── 2D-anchored depth ─────────────────────────────
+
+# Kinematic tree from the pelvis outwards: (parent, child). Depth is solved down each chain.
+TREE = [("pelvis", "r_hip"), ("r_hip", "r_knee"), ("r_knee", "r_ankle"), ("pelvis", "l_hip"), ("l_hip", "l_knee"),
+        ("l_knee", "l_ankle"), ("pelvis", "spine"), ("spine", "thorax"), ("thorax", "nose"), ("nose", "head"),
+        ("thorax", "l_shoulder"), ("l_shoulder", "l_elbow"), ("l_elbow", "l_wrist"), ("thorax", "r_shoulder"),
+        ("r_shoulder", "r_elbow"), ("r_elbow", "r_wrist")]
+MIRROR = {"l_": "r_", "r_": "l_"}
+
+
+def _smooth(x: np.ndarray, fps: float, seconds: float) -> np.ndarray:
+    """Centred moving average over `seconds` along axis 0 (NaN-free input)."""
+    k = max(1, int(round(seconds * fps)) | 1)
+    if k <= 1 or len(x) < k:
+        return x
+    pad = k // 2
+    xp = np.concatenate([np.repeat(x[:1], pad, 0), x, np.repeat(x[-1:], pad, 0)], 0)
+    c = np.cumsum(xp, 0)
+    c = np.concatenate([np.zeros_like(c[:1]), c], 0)
+    return (c[k:] - c[:-k]) / k
+
+
+def anchor_to_2d(mb: np.ndarray, x2: np.ndarray, conf: np.ndarray, covered: np.ndarray, fps: float) -> np.ndarray:
+    """Rebuild the lifted pose on the video's own 2D keypoints.
+
+    x and y of every joint are the 2D keypoints (image pixels, pelvis at the origin), so the 3D pose projects
+    exactly onto what the video shows. Only the depth comes from MotionBERT: its sign (toward or away from the camera)
+    and, through the bone lengths, how far. Each bone gets ONE length for the whole clip, measured where the limb is
+    flattest to the camera (a high percentile of its 2D length, left and right averaged); per frame the depth step
+    along the bone is then sqrt(L² − 2D length²) — the classic orthographic reconstruction (Taylor 2000) with
+    MotionBERT resolving the front/back ambiguity. Depth signs are smoothed over time so a limb can't flip through
+    the picture plane on one noisy frame. A side-on limb therefore keeps its 2D angle exactly; a limb turned toward
+    the camera gets its foreshortening undone by its known length.
+    """
+    out = np.full_like(mb, np.nan)
+    idx = np.where(covered)[0]
+    if len(idx) < 3:
+        return mb
+    a, b = idx[0], idx[-1] + 1
+    P2 = x2[a:b] - x2[a:b, HJ["pelvis"]][:, None]  # (T, 17, 2) px, pelvis-relative
+    M = mb[a:b]
+    C = conf[a:b]
+    # MotionBERT's units → pixels: least-squares scale between its x/y and the 2D (both pelvis-relative)
+    mxy = M[..., :2].reshape(-1)
+    pxy = P2.reshape(-1)
+    ok = np.isfinite(mxy) & np.isfinite(pxy)
+    scale = float(np.dot(mxy[ok], pxy[ok]) / max(np.dot(mxy[ok], mxy[ok]), 1e-9)) if ok.any() else 1.0
+    if not np.isfinite(scale) or scale <= 0:
+        return mb
+    Mz = M[..., 2] * scale  # MotionBERT depth in pixels
+    # one length per bone: where the limb is flattest to the camera its 2D length is (nearly) the true length
+    pct = float(L3.bone_percentile)
+    lengths: dict[tuple[str, str], float] = {}
+    for p_, c_ in TREE:
+        d2 = np.linalg.norm(P2[:, HJ[c_]] - P2[:, HJ[p_]], axis=1)
+        good = (C[:, HJ[c_]] > 0.3) & (C[:, HJ[p_]] > 0.3) & np.isfinite(d2)
+        # frames where MotionBERT has the bone nearly flat to the camera: there the 2D length IS the length. Their
+        # median is robust to keypoint jitter (a high percentile of all frames comes out too long, and an over-long
+        # bone has to lean toward the camera to fit, which bends the joint).
+        dzb = np.abs(Mz[:, HJ[c_]] - Mz[:, HJ[p_]])
+        flat = good & (dzb < float(L3.flat_frac) * np.maximum(np.hypot(d2, dzb), 1e-6))
+        l2 = (float(np.median(d2[flat])) if flat.sum() >= 5 else
+              float(np.percentile(d2[good], pct)) if good.sum() >= 5 else np.nan)
+        # MotionBERT's own length (median, its scale) guards limbs never seen flat to the camera
+        d3 = np.linalg.norm(np.concatenate([P2[:, HJ[c_]] - P2[:, HJ[p_]],
+                                            (Mz[:, HJ[c_]] - Mz[:, HJ[p_]])[:, None]], 1), axis=1)
+        l3 = float(np.nanmedian(d3)) if np.isfinite(d3).any() else np.nan
+        lengths[(p_, c_)] = np.nanmax([l2, min(l3, 1.25 * l2) if np.isfinite(l2) else l3])
+    def mirror(name: str) -> str:
+        return MIRROR[name[:2]] + name[2:] if name[:2] in MIRROR else name
+
+    raw = dict(lengths)
+    for (p_, c_), v in raw.items():  # left and right limbs are the same length
+        other = raw.get((mirror(p_), mirror(c_)))
+        if c_[:2] in MIRROR and other is not None and np.isfinite(other):
+            lengths[(p_, c_)] = 0.5 * (v + other) if np.isfinite(v) else other
+    # depth steps: sign from MotionBERT (smoothed in time), size from the bone length
+    Z = np.zeros(P2.shape[:2])
+    for p_, c_ in TREE:
+        d2 = np.linalg.norm(P2[:, HJ[c_]] - P2[:, HJ[p_]], axis=1)
+        L = lengths[(p_, c_)]
+        mag = np.sqrt(np.clip(L * L - d2 * d2, 0.0, None)) if np.isfinite(L) else np.zeros_like(d2)
+        dz_mb = _smooth((Mz[:, HJ[c_]] - Mz[:, HJ[p_]])[:, None], fps, float(L3.sign_smooth_s))[:, 0]
+        # where MotionBERT is unsure (its step much smaller than the geometric one) scale the step down rather than
+        # trusting a coin-flip sign: dz = mag · clip(dz_mb / mag, −1, 1)
+        dz = mag * np.clip(dz_mb / np.maximum(mag, 1e-6), -1.0, 1.0)
+        Z[:, HJ[c_]] = Z[:, HJ[p_]] + dz
+    Z = _smooth(Z, fps, float(L3.depth_smooth_s))
+    out[a:b, :, :2] = P2
+    out[a:b, :, 2] = Z
+    return out
 
 
 BONES = [("pelvis", "r_hip"), ("r_hip", "r_knee"), ("r_knee", "r_ankle"), ("pelvis", "l_hip"), ("l_hip", "l_knee"),

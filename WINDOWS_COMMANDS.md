@@ -160,7 +160,7 @@ PyTorch rather than separate NVIDIA pip packages. That's harmless: BowlIQ import
 
 MotionBERT (3D angles) is now used automatically. To also try the RTMPose engine, add `BOWLIQ_POSE_BACKEND=rtm` to
 `backend\.env`. It isn't the default yet: on the 14 labelled clips it beat MediaPipe from behind the bowler but lost
-elsewhere. Restart the backend. The first analysis downloads the models once (about 230 MB, checked by SHA-256); the
+elsewhere. Restart the backend. The first analysis downloads the models once (about 230 MB for RTMPose, 170 MB for MotionBERT, checked by SHA-256); the
 console then says `Pose engine: rtmpose_m_halpe26 on gpu`. Each report's Coach view → Diagnostics → context.json shows the
 time per stage (`stages[].seconds`) and `timings.pose_ms_per_frame`.
 
@@ -250,7 +250,7 @@ cd E:\bowliq\backend
 python -m pytest -q -m "not slow"
 ```
 
-Expect `166 passed, 7 deselected`. The slow invariance tests run the real pose model on augmented copies of the sample clip
+Expect `173 passed, 7 deselected`. The slow invariance tests run the real pose model on augmented copies of the sample clip
 (about 2–4 minutes):
 
 ```powershell

@@ -888,6 +888,9 @@ def analyse(files: AnalysisFiles, st: Prepared, params: dict, history: list[dict
     from app.pipeline.identity import assign_roles
     roles = S.run("limb roles", lambda: assign_roles(kin, events, kin.bowling_arm, scale.body_height_px), None)
     if roles is not None:
+        if roles.get("relabel"):
+            from app.pipeline.identity import swap_leg_labels
+            kin = swap_leg_labels(kin, *roles["relabel"])
         kin = dataclasses.replace(kin, roles=roles)
         if roles["confidence"] == "Low":
             review.append(f"Front/back leg: {roles['reason']}")

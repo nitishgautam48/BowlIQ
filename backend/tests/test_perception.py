@@ -164,3 +164,83 @@ def test_3d_export_for_the_viewer_has_one_entry_per_frame_and_the_roles():
     assert out["roles"] == {"front_leg": "left", "back_leg": "right", "bowling_arm": "right"}
     assert all(a in out["joints"] and b in out["joints"] for a, b in out["bones"])
     json.dumps(out)  # serialisable
+
+
+# ───────────────────────────── roles in every filming direction ─────────────────────────────
+
+def _roles_for(pose, truth, direction, arm="right"):
+    kin = smooth_pose(pose, bowling_arm=arm, direction=direction)
+    ev = DeliveryEvents(EventResult("BFC", truth.bfc, "High", "", 1), EventResult("FFC", truth.ffc, "High", "", 1),
+                        EventResult("release", truth.release, "High", "", 1))
+    return kin, ev, identity.assign_roles(kin, ev, arm, estimate_scale(kin, None).body_height_px)
+
+
+@pytest.mark.parametrize("direction", ["left_to_right", "right_to_left"])
+@pytest.mark.parametrize("arm", ["right", "left"])
+def test_front_leg_is_found_from_either_side_of_the_pitch(direction, arm):
+    """Right- and left-arm bowlers filmed from both sides (so the front leg is sometimes the far, hidden one)."""
+    pose, truth = synth_pose(direction=direction, arm=arm)
+    _kin, _ev, roles = _roles_for(pose, truth, direction, arm)
+    front = "left" if arm == "right" else "right"
+    assert roles["front_leg"] == front and roles["confidence"] in ("High", "Medium") and roles["relabel"] is None
+
+
+def test_front_leg_from_position_when_the_hidden_foot_gives_no_landing_signal():
+    """Filmed from the bowling-arm side the front foot is behind the back leg at FFC; the pose model then often holds
+    the occluded foot still (no landing speed drop). Being ahead along the run still identifies it."""
+    pose, truth = synth_pose(direction="right_to_left")
+    lf = [J[f"left_{p}"] for p in ("ankle", "heel", "foot_index")]
+    w = 12
+    pose.kp[truth.ffc - w:truth.ffc + 1, lf, :2] = pose.kp[truth.ffc, lf, :2]  # frozen in the frames before landing
+    _kin, _ev, roles = _roles_for(pose, truth, "right_to_left")
+    assert roles["front_leg"] == "left"
+
+
+def test_labels_flipped_between_bfc_and_ffc_are_swapped_back():
+    """An uncaught label flip as the legs pass each other between BFC and FFC: the labels at BFC then point the other
+    way to those at FFC. The role check finds it and swaps the earlier frames back."""
+    pose, truth = synth_pose(direction="right_to_left")
+    clean, ev, _r0 = _roles_for(pose, truth, "right_to_left")
+    cross = truth.bfc + 8  # the flip lands a few frames after BFC, while the front leg swings through
+    flipped = identity.swap_leg_labels(clean, 0, cross)  # what the smoothed skeleton looks like after the flip
+    roles = identity.assign_roles(flipped, ev, "right", estimate_scale(clean, None).body_height_px)
+    assert roles["front_leg"] == "left" and roles["relabel"] is not None
+    s0, s1 = roles["relabel"]
+    assert s0 <= truth.bfc < s1 <= truth.ffc
+    fixed = identity.swap_leg_labels(flipped, s0, s1)
+    assert fixed.identity_log[-1]["reason"].startswith("labels flipped")
+    w = 6  # at BFC the right (back) foot is the planted one again
+    vr = np.linalg.norm(np.diff(fixed.joint("right_ankle")[truth.bfc:truth.bfc + w], axis=0), axis=1).mean()
+    vl = np.linalg.norm(np.diff(fixed.joint("left_ankle")[truth.bfc:truth.bfc + w], axis=0), axis=1).mean()
+    assert vr < vl
+
+
+# ───────────────────────────── 2D-anchored 3D ─────────────────────────────
+
+def test_anchored_3d_keeps_the_2d_picture_and_restores_foreshortened_limbs():
+    """x/y come from the video's 2D keypoints exactly; a shin that MotionBERT says points toward the camera (shorter in
+    2D than its length elsewhere) gets that depth back, so its 3D length is constant."""
+    T = 40
+    H = lift3d.HJ
+    x2 = np.zeros((T, 17, 2))
+    x2[:, H["r_hip"]] = [10, 0]
+    x2[:, H["l_hip"]] = [-10, 0]
+    x2[:, H["r_knee"]] = [10, 50]
+    x2[:, H["l_knee"]] = [-10, 50]
+    x2[:, H["r_ankle"]] = [10, 100]
+    x2[:, H["l_ankle"]] = [-10, 100]
+    for name, xy in (("spine", [0, -40]), ("thorax", [0, -80]), ("nose", [0, -100]), ("head", [0, -115]),
+                     ("l_shoulder", [-20, -80]), ("r_shoulder", [20, -80]), ("l_elbow", [-20, -40]),
+                     ("r_elbow", [20, -40]), ("l_wrist", [-20, 0]), ("r_wrist", [20, 0])):
+        x2[:, H[name]] = xy
+    short = slice(20, 30)  # right shin pointing toward the camera: 30 px in 2D instead of 50
+    x2[short, H["r_ankle"]] = [10, 80]
+    mb = np.zeros((T, 17, 3))
+    mb[..., :2] = x2 / 100.0  # MotionBERT agrees on x/y (its own units) …
+    mb[short, H["r_ankle"], 2] = -0.4  # … and says the ankle came toward the camera there
+    conf = np.ones((T, 17))
+    out = lift3d.anchor_to_2d(mb, x2, conf, np.ones(T, bool), fps=50.0)
+    assert np.allclose(out[..., :2], x2)  # the 2D picture is kept exactly
+    shin = np.linalg.norm(out[:, H["r_ankle"]] - out[:, H["r_knee"]], axis=1)
+    assert shin[25] == pytest.approx(50.0, abs=4) and out[25, H["r_ankle"], 2] < out[25, H["r_knee"], 2]
+    assert np.allclose(out[5, :, 2], 0.0, atol=1e-6)  # a flat frame stays flat: its 3D angles equal the 2D ones
