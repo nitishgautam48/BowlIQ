@@ -1,0 +1,37 @@
+# Local/self-hosted deployment. Put Caddy (deploy/Caddyfile) in front for TLS when exposing beyond localhost.
+services:
+  api:
+    build: ./backend
+    env_file: ./backend/.env
+    environment:
+      BOWLIQ_EMBEDDED_WORKER: "false"
+      BOWLIQ_ALLOWED_HOSTS: "localhost,127.0.0.1,api"
+    volumes: ["bowliq-data:/data"]
+    ports: ["127.0.0.1:8000:8000"]
+    read_only: true
+    tmpfs: ["/tmp"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    restart: unless-stopped
+  worker:
+    build: ./backend
+    command: ["python", "-m", "app.worker"]
+    env_file: ./backend/.env
+    volumes: ["bowliq-data:/data"]
+    read_only: true
+    tmpfs: ["/tmp"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    restart: unless-stopped
+  web:
+    build:
+      context: ./frontend
+      args: { NEXT_PUBLIC_API_URL: "http://localhost:8000" }
+    ports: ["127.0.0.1:3000:3000"]
+    read_only: true
+    tmpfs: ["/tmp", "/app/.next/cache"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    restart: unless-stopped
+volumes:
+  bowliq-data:

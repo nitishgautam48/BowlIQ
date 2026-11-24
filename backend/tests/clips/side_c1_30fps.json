@@ -1,0 +1,18 @@
+{
+  "file": "side_c1_30fps.mp4",
+  "view": "side-on",
+  "bowling_arm": "right",
+  "direction": "left_to_right",
+  "bfc_frame": 30,
+  "ffc_frame": 35,
+  "release_frame": 39,
+  "tolerance_frames": {
+    "bfc": 2,
+    "ffc": 2,
+    "release": 1
+  },
+  "slow_motion": null,
+  "height_cm": null,
+  "labelled_by": "frame-by-frame review",
+  "notes": "Open field, 30 fps, 480p."
+}

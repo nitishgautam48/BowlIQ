@@ -1,0 +1,18 @@
+{
+  "file": "behind_nets_60fps.mp4",
+  "view": "behind",
+  "bowling_arm": "right",
+  "direction": null,
+  "bfc_frame": 160,
+  "ffc_frame": 166,
+  "release_frame": 169,
+  "tolerance_frames": {
+    "bfc": 3,
+    "ffc": 3,
+    "release": 2
+  },
+  "slow_motion": null,
+  "height_cm": null,
+  "labelled_by": "frame-by-frame review",
+  "notes": "Filmed from behind the bowler; contacts hard to see: wide tolerance."
+}

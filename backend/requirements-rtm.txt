@@ -1,0 +1,11 @@
+# Optional perception upgrade (v4.0): RTMDet + ByteTrack + RTMPose (primary 2D pose, with heel/toe keypoints) and
+# MotionBERT 3D lifting. Free, runs locally. Without these packages BowlIQ uses MediaPipe and 2D angles as before.
+#
+# NVIDIA GPU (e.g. RTX 4060): install PyTorch with CUDA first (WINDOWS_COMMANDS.md → GPU), then
+#     pip install -r requirements-rtm.txt
+# CPU only: replace onnxruntime-gpu below with  onnxruntime==1.23.2  and install PyTorch with  pip install torch
+# (never install onnxruntime and onnxruntime-gpu together).
+#
+# Model weights download once on first use (checked by SHA-256): RTMDet-m person and RTMPose-m Halpe-26 from
+# download.openmmlab.com (Apache-2.0), MotionBERT-lite from huggingface.co/walterzhu/MotionBERT (Apache-2.0).
+onnxruntime-gpu==1.23.2

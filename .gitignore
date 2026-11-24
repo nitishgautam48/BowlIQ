@@ -1,0 +1,22 @@
+backend/.venv/
+backend/storage/
+backend/.env
+backend/models/*.task
+backend/models/*.sha256
+**/__pycache__/
+.pytest_cache/
+frontend/node_modules/
+frontend/.next/
+frontend/.env.local
+
+# downloaded model weights (fetched automatically on first use)
+backend/models/rtm/
+backend/models/motionbert/
+backend/models/*.pt
+backend/models/*.onnx
+# videos (too large for GitHub)
+*.mp4
+*.mov
+*.avi
+backend/tests/clips/.cache/
+*.tsbuildinfo

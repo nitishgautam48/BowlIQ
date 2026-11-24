@@ -1,0 +1,289 @@
+# BowlIQ pipeline tunables — the ONLY place analysis thresholds live.
+#
+# Units (so one setting works for every clip, camera and frame rate):
+#   *_s        seconds. Converted to frames per clip as frames = round(seconds × fps) (never below min_frames).
+#   *_bh       body heights. BH = nose-to-ankle distance × 1.07, median over upright frames of THIS clip.
+#   *_bh_s     body heights per second.
+#   *_frac     a fraction (0–1) of something stated in the comment (frame height, peak value, …).
+#   *_pct      a percentile of this clip's own signal.
+#   *_deg      degrees.
+# Nothing here is tuned to a specific video. Values are physical priors (how fast a body can move, how long a
+# delivery stride takes) or statistical minimums. Change a value only if scripts/regression.py still passes on ALL
+# labelled clips afterwards.
+
+general:
+  min_clip_s: 1.0            # shorter clips can't contain run-up + stride + release: the only duration failure
+  min_frames: 1              # floor for any seconds→frames conversion
+  min_samples: 3             # fewest finite samples any fit/statistic is computed from
+
+smoothing:
+  vis_threshold: 0.5         # keypoint visibility below this = missing
+  max_gap_s: 0.1             # gaps up to this long are interpolated (longer = left missing)
+  body_window_s: 0.03        # Savitzky–Golay window for body joints
+  arm_window_s: 0.02         # … for the bowling elbow/wrist (fast: shorter window)
+  min_window: 5              # Savitzky–Golay needs at least 5 samples for a quadratic fit
+  swap_predict_s: 0.05       # left/right label-swap fixer: constant-velocity prediction over gaps up to this
+  swap_hold_s: 0.1           # … and compares to the last position over gaps up to this
+  swap_ratio: 0.6            # swapping must explain the motion this much better than keeping the labels
+
+scale:
+  head_top_correction: 1.07  # nose → top of head: standing height ≈ nose-to-ankle × 1.07 (anthropometry)
+  upright_pct: 90            # "upright" frames = nose-to-ankle at or above this percentile of the clip (median taken)
+  segment_pct: 75            # segment lengths (shank, thigh, trunk, neck) taken at this percentile
+  min_rel_uncertainty: 0.03
+  fallback_rel_uncertainty: 0.08
+  trunk_fraction: 0.30       # shoulder-centre to hip-centre ≈ this × standing height (anthropometry), last-resort scale
+
+context:
+  rotation:
+    upright_frac: 0.6        # pose check: head above the ankles in at least this fraction of frames = upright
+    sideways_frac: 0.6       # body axis more horizontal than vertical in this fraction = rotated 90°
+    high_frac: 0.9           # upright in at least this fraction = High confidence
+  direction:
+    runup_min_bh: 0.5        # mid-hip travel over the run-up below this: direction is a guess (Low confidence)
+    runup_high_bh: 2.0       # at or above this: High confidence
+    runup_frac: 0.6          # without a release estimate, the run-up = this first fraction of the bowler's frames
+  arm:
+    window_s: 0.3            # arm evidence is measured within ±window of the highest hand point
+    margin_low: 0.15         # relative score margin below which the arm decision is Low confidence
+    margin_high: 0.4         # … at or above which it is High
+    speed_pct: 90            # peak hand speed = this percentile within the window (robust to a glitch frame)
+    side_min_frac: 0.25      # front-on/behind: the hand must come over at least this × shoulder width to one side
+                             # to count as evidence for the arm
+  view:
+    # Viewing angle from three independent cues, 0° = square side-on, 90° = straight along the pitch:
+    #  1. motion: atan(depth travel ÷ sideways travel). Depth travel = |ln(size growth)| × distance, where
+    #     distance is the typical camera distance in body lengths (10 m ÷ 1.8 m ≈ 5.5).
+    #  2. shoulders: asin(shoulder width ÷ torso length ÷ frontal_shoulder_ratio) during the run-up.
+    #  3. stride: acos(widest foot separation across the picture ÷ stride_full_bl).
+    camera_distance_bl: 5.5
+    frontal_shoulder_ratio: 0.65   # shoulder-joint spacing ÷ torso length seen square on (anthropometry)
+    min_motion_bl: 0.6       # less total motion (body lengths) than this: the motion cue is unreliable
+    side_max_deg: 30         # < this: side-on
+    front_min_deg: 60        # > this: front-on / behind; between: oblique
+    band_deg: 10             # within this of a boundary = Medium confidence instead of High
+    stride_full_bl: 1.0      # a delivery stride (≈ 0.8 × height) seen square on, in body lengths (hip→ankle + trunk)
+    stride_pct: 90           # "widest" foot separation = this percentile over the clip (robust to a bad frame)
+    max_cue_disagreement_deg: 45  # cue angles further apart than this lower the confidence one level
+    min_log_growth: 0.1      # |ln size change| below this can't tell front-on from behind: use which shoulder is on which side
+  bowler:
+    # Every person track is scored on the run-up pattern (never on size):
+    travel_bh: 3.0           # sustained travel (sideways or towards/away from the camera) of this many BH = full score
+    decel_frac: 0.5          # speed falling below this fraction of its run-up peak (the delivery stride) = full score
+    arm_above_head_bh: 0.15  # a hand this far above the head = full arm-swing score
+    hand_speed_bh_s: 6.0     # peak hand speed (BH/s, real time) for full arm-swing score
+    min_visible_s: 0.3       # a track shorter than this can't be a delivery
+    max_candidates: 5        # people tried, best first, when no bowling action is found for the first
+    margin_low: 0.15         # best − second best score below this (score range 0–3): Low confidence
+    solo_high_score: 1.5     # a single candidate scoring at least this (of 3) = High confidence
+    body_size_bh: 0.8        # shoulder→hip→ankle length ≈ this × BH (fallback when the nose isn't seen)
+    speed_smooth_s: 0.1      # body speed is averaged over this before looking for the deceleration
+    peak_search_frac: 0.8    # the run-up speed peak is looked for in this first fraction of the track
+
+tracking:
+  appearance_max: 0.45       # colour-histogram distance above which a detection is someone else
+  link_gap_s: 0.05           # track building: link detections across gaps up to this
+  link_dist_bodies: 0.6      # … and up to this many body sizes apart
+  follow_gate_bodies: 0.7    # following the chosen person: search radius in body sizes
+  size_ratio: [0.65, 1.5]    # apparent size change allowed from one detection to the next (smoothed reference)
+  seed_velocity_s: 0.1       # initial velocity from this much track
+  tap_search_s: 0.3          # a tap looks for a person within ±this
+  span_bridge_s: 0.25        # bowler "on screen" span bridges detection gaps up to this
+  min_on_screen_s: 0.3       # the bowler must be seen at least this long (else: no person found)
+  min_detection_rate: 0.2    # … in at least this fraction of the span
+  edge_frac: 0.01            # joints within this fraction of the frame edge are out-of-frame guesses
+
+contacts:
+  # A foot contact: the ankle's speed collapses versus its swing speed and its height stops falling.
+  ref_window_s: 0.1          # swing (approach) speed = peak over this window before the frame, but never shorter
+                             # than the smoothing window (smoothing spreads a stop over that many samples)
+  drop_ratio: 0.4            # speed below this fraction of the approach speed (> 60 % drop)
+  move_bh_s: 0.8             # the foot must have been moving at least this fast
+  still_vy_bh_s: 1.0         # vertical speed below this = settled
+  settle_s: 0.06             # time allowed for heel-strike → foot-flat settling
+  next_s: 0.05               # just after the contact the foot can't still move at nearly full speed …
+  next_ratio: 0.9            # … (≥ this fraction of the approach speed)
+  refractory_s: 0.1          # two contacts of one foot are at least this far apart
+  plateau_hold_s: 0.06       # height method: ankle stays within plateau_band of its low point for this long
+  plateau_band_bh: 0.02      # … band around the local minimum
+  foot_points_min_frac: 0.5  # heel/toe methods join the consensus when the heel is seen in this fraction of the window
+
+release:
+  peak_half_s: 0.07          # a release peak is the highest wrist point within ±this
+  rise_s: 0.25               # the hand rises ≥ rise_bh in this time before release …
+  rise_bh: 0.25
+  drop_s: 0.25               # … and falls ≥ drop_bh in this time after (follow-through)
+  drop_bh: 0.25
+  above_head_bh: 0.10        # at release the hand is at least this far above the head
+  speed_offset_s: 0.01       # speed method: release ≈ peak hand speed + this
+  search_half_s: 0.15        # release methods search within ±this of the anchor
+  window_after_ffc_s: 0.15   # contact-first search: release within this after FFC
+
+stride:
+  ffc_release_min_s: 0.04    # FFC → release: at least this …
+  ffc_release_max_s: 0.30    # … at most this
+  bfc_ffc_min_s: 0.08        # BFC → FFC: at least this …
+  bfc_ffc_max_s: 0.60        # … at most this
+  runup_window_s: 0.4        # run-up check: mid-hip travel over this before FFC
+  runup_min_bh_s: 0.8        # … at least this fast (or a running gait relative to the hips)
+  gait_sweep_min_bh: 0.25    # running gait: both feet sweep ≥ this relative to the hips …
+  gait_sweep_max_bh: 0.40    # … and one ≥ this
+  hip_decel_frac: 0.6        # hip method for FFC: forward hip speed falls below this fraction of its run-up peak
+
+consensus:
+  agree_s: 0.05              # methods within this of each other agree
+  # confidence = w_agree × agreement + w_vis × visibility + w_fps × frame-rate score (all 0–1)
+  w_agree: 0.5
+  w_vis: 0.3
+  w_fps: 0.2
+  fps_full: 120              # frame rate scoring 1.0 (linear from 0 at 0 fps)
+  high: 0.75                 # confidence ≥ this = High
+  medium: 0.5                # ≥ this = Medium, else Low
+  min_agree: 2               # fewer agreeing methods = Low confidence + needs review
+  max_candidates: 4          # deliveries passing the strict checks that are compared:
+  tie_margin: 0.1            # … release peaks within this of the best are near-tied: the one at the end of the
+                             # fastest run-up (hip speed before its FFC) is the delivery
+  estimate: primary          # family_mean: mean of each independent kind's median frame in the agreeing cluster;
+                             # primary: the definitional method's frame (see primary_when_agreeing)
+  primary_when_agreeing: true  # agreeing cluster contains the primary (speed / height peak) method: use its frame;
+                             # false = plain median of the cluster (secondary methods have small systematic offsets)
+
+priors:                      # used only when nothing else is available, always at Low confidence + needs review
+  ffc_before_release_s: 0.12
+  bfc_before_ffc_s: 0.18
+
+slow_motion:
+  hand_speed_bh_s: 4.0       # peak hand speed below this (real-time clips: 9–18) = slow motion
+  real_hand_speed_bh_s: 26.0 # typical real-time peak; factor guess = this ÷ measured speed …
+  choices: [2, 4, 8, 10, 16, 20, 25, 32]  # … snapped to the nearest common replay factor
+
+quality:
+  fps_good: 100              # informational quality bands
+  fps_ok: 50
+  res_good: 720
+  res_ok: 480
+  bowler_small_model_frac: 0.27  # bowler shorter than this × pose_model.input_px (≈ 70 px) = small: Low quality
+  detection_ok: 0.85
+  detection_low: 0.6
+
+camera:
+  # Camera movement = apparent background shift in FRAME WIDTHS PER SECOND (grey difference ÷ image gradient, outside
+  # the people): independent of resolution, frame rate and how textured the background is.
+  # Compression noise on a tripod reads ≈ 0.015.
+  steady_wps: 0.03           # below: steady (also: no camera-path correction attempted)
+  moving_wps: 0.08           # at or above: moving — speeds and distances across the frame are not trusted
+  work_width: 480            # camera-path estimation runs at this width (transforms are rescaled)
+  min_points: 25
+  moved_frac: 0.02           # the view shifts > this fraction of the width …
+  moved_deg: 1.0             # … or turns > this: the camera moved
+  max_step_scale: 0.03       # a phone can't zoom more than this between frames
+  max_step_turn_deg: 2.0
+  min_inlier_frac: 0.4
+  planted_slack_bh: 0.01     # correction kept only if the planted foot is no less still (+ this slack)
+
+pose_model:
+  # Joint precision depends on how many pixels the person covers at the pose model's input, so these two limits are
+  # tied to the MODEL (its 256 px landmark input), not to any clip.
+  input_px: 256
+
+zoom:
+  always_model_frac: 0.47    # bowler shorter than this × pose_model.input_px (≈ 120 px): zoomed second pass
+  out_px: 512                # crop is enlarged to this model input size
+  min_zoom: 1.5
+  min_crop_frac: 0.1         # crop side never below this fraction of the frame's short side
+  accept_frac: 0.7           # all-or-nothing: at least this fraction of frames must be refined
+
+scene_cuts:
+  min_change: 0.25           # colour-histogram change marking a hard cut …
+  x_median: 8.0              # … and at least this many times the clip's median change
+
+metrics:
+  runup_window_s: 0.3        # run-up speed = mid-hip travel over this before BFC
+  runup_min_s: 0.15          # … needs at least this much visible run-up
+
+ball:
+  diameter_m: 0.072
+  track_s: 0.33              # the ball is followed for this long after release
+  min_points: 4
+  max_speed_ms: 50.0
+  plausible_kmh: [40.0, 175.0]
+  min_diameter_px: 3.0       # detector limit: a smaller ball can't be found
+
+gemini_video:
+  # Optional first pass (BOWLIQ_GEMINI_VIDEO=1): Gemini describes the clip; these settings say how much to trust it.
+  frames_budget: 40          # frames per clip Gemini looks at (fps = this ÷ clip length) …
+  max_fps: 8                 # … but at most this many per second
+  timeout_s: 90
+  max_upload_mb: 18          # inline upload limit (the processed clip is usually 1–5 MB)
+  override_confidence: [high]            # Gemini's answer replaces the pipeline's only at this confidence …
+  override_when_pipeline: [Low, Medium]  # … and only when the pipeline's own answer had this confidence
+  release_tolerance_s: 1.0   # Gemini's release time vs the measured one: further apart = flagged for review
+  bowler_box_margin: 0.1     # the bowler box is widened by this fraction when matching people to it
+
+perception:
+  # 2D pose: PRIMARY estimator on the bowler, SECONDARY to cross-check it. primary: rtmpose | yolo | mediapipe |
+  # vitpose (placeholder, not installed yet). Chosen by BOWLIQ_POSE_BACKEND=auto|rtm|yolo|mediapipe|vitpose.
+  # auto_primary: what BOWLIQ_POSE_BACKEND=auto uses — previous (unchanged from v3: YOLO on a CUDA GPU when the GPU
+  # packages are installed, else MediaPipe) | mediapipe | rtmpose. Measured on the 14 labelled clips
+  # (scripts/regression.py, same downstream code): MediaPipe 8 pass + 6 flagged + 0 fail; RTMPose 5 pass + 3 flagged
+  # + 5 fail + 1 error (better from behind the bowler, worse on oblique/follow-pan clips). Make rtmpose the default
+  # only when the regression passes with it on every clip.
+  auto_primary: previous
+  secondary: mediapipe       # mediapipe | none
+  det_score: 0.3             # RTMDet person score to keep a box
+  rtm_keypoint_threshold: 0.3  # OpenMMLab's keypoint threshold for RTMPose: scores are rescaled so this equals
+                             # smoothing.vis_threshold (the two models' confidence scales differ)
+  coast_min_score: 0.3       # pose on a tracker-predicted box (detector missed the bowler) kept if its mean score ≥ this
+  track_high: 0.5            # ByteTrack: confident detections start/continue tracks …
+  track_low: 0.1             # … weak ones (motion blur) can only continue an existing track
+  track_iou: 0.3             # box overlap needed to continue a track
+  track_lost_s: 0.5          # a track survives this long without a detection
+  relink_gap_s: 0.5          # two identities closer than this in time (and place, and look) are the same person
+  fp16: true                 # TensorRT execution provider (if installed) runs the ONNX models in FP16
+  use_tensorrt: false        # needs NVIDIA TensorRT installed; CUDA (FP32) is used otherwise — still well in budget
+  # per-joint agreement between the two estimators (distance in body heights):
+  agree_bh: 0.03             # up to this: full confidence kept
+  disagree_bh: 0.10          # at or beyond this: confidence scaled down to conf_floor
+  conf_floor: 0.2
+  fill_from_secondary: true  # a joint the primary misses (or barely sees) is taken from the secondary
+  crop_scale: 1.9            # secondary runs on a crop this many times the bowler's height around them
+  crop_px: 512               # … resized to this square size
+
+identity:
+  # left/right swap correction (pipeline/identity.py)
+  swap_ratio: 0.6            # swap only when the swapped assignment costs less than this × keeping (hysteresis)
+  predict_s: 0.05            # constant-velocity prediction across gaps up to this …
+  max_gap_s: 0.1             # prediction from the last positions bridges gaps up to this
+  duplicate_bh: 0.03         # left and right labels closer than this (body heights) are on the same point …
+  duplicate_jump_bh: 0.15    # … and the one that got there this far from its own predicted position is wrong
+  # roles (front/back leg from the foot contacts)
+  role_window_s: 0.08        # foot speed is compared over this just before vs just after FFC/BFC
+  role_margin: 0.2           # relative difference between the feet needed for a confident role
+
+lifting:
+  enabled: true              # 3D lifting with MotionBERT (needs PyTorch; otherwise 2D only)
+  model_fps: 50              # MotionBERT was trained on 50 fps Human3.6M: sequences are resampled to this (real time)
+  window: 243                # frames per lifting window (the model's maximum), windows overlap by half
+  fp16: true                 # CUDA: run in FP16
+  min_joints: 10             # a frame needs this many of the 17 joints seen to be lifted
+  head_from_nose: 0.5        # without a head-top point: head = nose + this × (nose − neck)
+
+angles:
+  # View-aware gating: a 2D angle is used only if the limb's plane is within plane_max_deg of the image plane (from
+  # the 3D pose); otherwise the 3D value. source per metric: auto (that rule) | 3d | 2d. Set from
+  # scripts/validate.py's per-metric errors against hand measurements (keep the most accurate source).
+  # off = ignore the 3D value for that metric (2D only, as before v4.0).
+  # Knees default to off: on the 5 side-on regression clips (where 2D is reliable, plane 4-10 deg from the picture)
+  # MotionBERT's knees came out 12-42 deg more bent than 2D, while trunk flexion agreed within 0-4 deg. Re-enable
+  # with auto once validate.py --sources on Kinovea measurements shows 3D knees are accurate.
+  plane_max_deg: 20
+  agree_deg: 7               # 3D and valid 2D within this: High confidence; further apart: Low
+  source:
+    front_knee_angle_ffc: "off"
+    front_knee_angle_release: "off"
+    front_knee_flexion_ffc_to_release: "off"
+    back_knee_angle_bfc: "off"
+    trunk_forward_flexion_release: auto
+    trunk_lateral_flexion_release: auto
+    hip_shoulder_separation_bfc: auto
+    shoulder_counter_rotation: auto

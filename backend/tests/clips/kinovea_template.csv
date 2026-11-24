@@ -1,0 +1,6 @@
+clip,metric,manual_value,event,manual_frame
+side_nets_60fps.mp4,front_knee_angle_ffc,165,,
+side_nets_60fps.mp4,front_knee_angle_release,158,,
+side_nets_60fps.mp4,trunk_forward_flexion_release,32,,
+side_nets_60fps.mp4,,,FFC,260
+side_nets_60fps.mp4,,,release,267

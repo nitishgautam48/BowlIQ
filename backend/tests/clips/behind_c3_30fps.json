@@ -1,0 +1,18 @@
+{
+  "file": "behind_c3_30fps.mp4",
+  "view": "behind",
+  "bowling_arm": "right",
+  "direction": null,
+  "bfc_frame": 70,
+  "ffc_frame": 74,
+  "release_frame": 78,
+  "tolerance_frames": {
+    "bfc": 3,
+    "ffc": 3,
+    "release": 2
+  },
+  "slow_motion": null,
+  "height_cm": null,
+  "labelled_by": "frame-by-frame review",
+  "notes": "Portrait, behind the bowler."
+}

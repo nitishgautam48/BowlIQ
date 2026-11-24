@@ -1,0 +1,161 @@
+# Research-based rules used to judge each metric. Do not change without updating the README.
+# type: band (target range) | max (flag when value >= threshold) | higher_better (vs personal baseline) | monitor (trend only)
+metrics:
+  stride_length_pct_height:
+    name: Stride length
+    unit: "% height"
+    view: side-on
+    type: band
+    band: [75, 85]
+    pace_weight: 0.6
+    injury_weight: 0.6
+    source: "Spratford et al., 2016, Int J Sports Sci & Coaching (75–85% of standing height recommended)."
+  front_knee_angle_ffc:
+    name: Front knee angle at FFC
+    unit: "°"
+    view: side-on
+    type: monitor
+    source: "Portus et al. front-leg technique classification (context for front knee flexion)."
+  front_knee_angle_release:
+    name: Front knee angle at release
+    unit: "°"
+    view: side-on
+    type: higher_better
+    pace_weight: 0.7
+    source: "Ramachandran et al., 2024 meta-analysis (moderate correlation of a straighter front knee at release with ball speed)."
+  front_knee_flexion_ffc_to_release:
+    name: Front knee flexion, FFC to release
+    unit: "°"
+    view: side-on
+    type: max
+    threshold: 10
+    pace_weight: 1.0
+    source: "Portus et al. front-leg technique classification; Worthington, King & Ranson, 2013, J Appl Biomech (a straighter front knee through front foot contact is associated with faster bowlers)."
+  trunk_forward_flexion_release:
+    name: Trunk forward flexion at release
+    unit: "°"
+    view: side-on
+    type: higher_better
+    pace_weight: 0.5
+    source: "Worthington et al., 2013 (more upper trunk flexion up to release in the fastest bowlers)."
+  release_height_pct_height:
+    name: Release height
+    unit: "% height"
+    view: side-on
+    type: monitor
+    source: "Monitored against your own trend; no population target is applied."
+  runup_speed:
+    name: Run-up speed
+    unit: "m/s"
+    unit_relative: "% height/s"
+    view: side-on
+    type: higher_better
+    pace_weight: 1.0
+    source: "Worthington et al., 2013; Ramachandran et al., 2024 meta-analysis (strongest correlate of ball speed)."
+  hip_shoulder_separation_bfc:
+    name: Hip–shoulder separation at BFC
+    unit: "°"
+    view: front-on
+    type: max
+    threshold: 30
+    injury_weight: 0.8
+    source: "Portus et al., 2004."
+  shoulder_counter_rotation:
+    name: Shoulder counter-rotation
+    unit: "°"
+    view: front-on
+    type: max
+    threshold: 30
+    injury_weight: 1.0
+    source: "Portus et al., 2004 (mixed action definition); Alway et al. (mixed classification linked to lumbar bone stress injury)."
+  trunk_lateral_flexion_release:
+    name: Trunk lateral flexion at release
+    unit: "°"
+    view: front-on
+    type: monitor
+    source: "Monitored against your own trend; no population target is applied."
+  # ── Phase 3: trend-only measurements (no research threshold: compared with your own deliveries only) ──
+  head_ahead_of_front_foot_release:
+    name: Head ahead of front foot at release
+    unit: "% height"
+    view: side-on
+    type: monitor
+    source: "Monitored against your own trend; no population target is applied."
+  head_bob_runup:
+    name: Head bob in the last strides
+    unit: "% height"
+    view: side-on
+    type: monitor
+    source: "Monitored against your own trend; no population target is applied."
+  back_knee_angle_bfc:
+    name: Back knee angle at BFC
+    unit: "°"
+    view: side-on
+    type: monitor
+    source: "Monitored against your own trend; no population target is applied."
+  front_leg_plant_angle_ffc:
+    name: Front leg plant angle at FFC
+    unit: "°"
+    view: side-on
+    type: monitor
+    source: "Monitored against your own trend; no population target is applied."
+  release_ahead_of_front_foot:
+    name: Release point ahead of front foot
+    unit: "% height"
+    view: side-on
+    type: monitor
+    source: "Monitored against your own trend; no population target is applied."
+  front_foot_landing_angle_ffc:
+    name: Front foot landing angle
+    unit: "°"
+    view: side-on
+    type: monitor
+    source: "Monitored against your own trend; no population target is applied."
+  speed_kept_at_ffc:
+    name: Run-up speed kept at FFC
+    unit: "%"
+    view: side-on
+    type: monitor
+    source: "Monitored against your own trend; no population target is applied."
+  front_arm_pulldown_ms:
+    name: Front arm pull-down before release
+    unit: "ms"
+    view: side-on
+    type: monitor
+    source: "Monitored against your own trend; no population target is applied."
+  bowling_elbow_extension:
+    name: Bowling elbow straightening (2D trend)
+    unit: "°"
+    view: side-on
+    type: monitor
+    source: "Personal trend only. Legality of an action can only be judged with 3D motion capture (ICC 15° rule)."
+  head_lateral_offset_release:
+    name: Head falling away at release
+    unit: "% height"
+    view: front-on / behind
+    type: monitor
+    source: "Monitored against your own trend; no population target is applied."
+  front_foot_alignment:
+    name: Front foot alignment
+    unit: "% height"
+    view: front-on / behind
+    type: monitor
+    source: "Monitored against your own trend; no population target is applied."
+  bowling_arm_angle_release:
+    name: Bowling arm angle from vertical
+    unit: "°"
+    view: front-on / behind
+    type: monitor
+    source: "Monitored against your own trend; no population target is applied."
+  front_knee_inward_release:
+    name: Front knee caving inward
+    unit: "% leg"
+    view: front-on / behind
+    type: monitor
+    source: "Monitored against your own trend; no population target is applied."
+  runup_line_drift:
+    name: Run-up line drift
+    unit: "% height"
+    view: front-on / behind
+    type: monitor
+    source: "Monitored against your own trend; no population target is applied."

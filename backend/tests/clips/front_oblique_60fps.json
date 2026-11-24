@@ -1,0 +1,21 @@
+{
+  "file": "front_oblique_60fps.mp4",
+  "view": [
+    "front-on",
+    "oblique"
+  ],
+  "bowling_arm": "right",
+  "direction": null,
+  "bfc_frame": 203,
+  "ffc_frame": 210,
+  "release_frame": 219,
+  "tolerance_frames": {
+    "bfc": 2,
+    "ffc": 2,
+    "release": 1
+  },
+  "slow_motion": null,
+  "height_cm": null,
+  "labelled_by": "frame-by-frame review",
+  "notes": "Filmed from in front of the bowler, diagonal."
+}

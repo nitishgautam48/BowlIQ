@@ -1,0 +1,4 @@
+# Optional GPU pose engine (NVIDIA, e.g. RTX 4060). Install PyTorch with CUDA FIRST (see WINDOWS_COMMANDS.md → GPU),
+# then:  pip install -r requirements-gpu.txt
+# Ultralytics is AGPL-3.0: fine for personal, non-commercial use.
+ultralytics==8.4.216

@@ -1,0 +1,21 @@
+{
+  "file": "behind_c5_30fps.mp4",
+  "view": [
+    "behind",
+    "oblique"
+  ],
+  "bowling_arm": "right",
+  "direction": null,
+  "bfc_frame": 27,
+  "ffc_frame": 29,
+  "release_frame": 31,
+  "tolerance_frames": {
+    "bfc": 2,
+    "ffc": 2,
+    "release": 2
+  },
+  "slow_motion": null,
+  "height_cm": null,
+  "labelled_by": "frame-by-frame review",
+  "notes": "Portrait, behind/diagonal; ball leaves the hand ~31-32."
+}

@@ -1,0 +1,14 @@
+[tool.ruff]
+line-length = 130
+target-version = "py311"
+extend-exclude = ["app/pipeline/motionbert"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "S", "SIM", "RUF", "PERF", "ASYNC"]
+# E501 long lines; S101 asserts in tests; RUF001-3 typographic characters in user-facing text; RUF005/RUF046 style;
+# S603/S404 subprocess with list args is the safe form; B008 is FastAPI's dependency-injection idiom.
+ignore = ["E501", "S101", "RUF001", "RUF002", "RUF003", "RUF005", "RUF046", "S603", "S404", "B008"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["slow: runs the real pose model on video (about 1–2 minutes); skip with -m \"not slow\""]

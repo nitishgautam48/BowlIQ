@@ -1,0 +1,142 @@
+{
+  "behind_c3_30fps": {
+    "err_s": 0.0666,
+    "errors": {
+      "bfc": 0,
+      "ffc": -1,
+      "release": -1
+    },
+    "fps": 30.040631880299635,
+    "status": "PASS"
+  },
+  "behind_c5_30fps": {
+    "err_s": 0.5012,
+    "errors": {
+      "bfc": 2,
+      "ffc": 5,
+      "release": 8
+    },
+    "fps": 29.925705280293716,
+    "status": "REVIEW"
+  },
+  "behind_handheld_30fps": {
+    "err_s": 0.6778,
+    "errors": {
+      "bfc": -17,
+      "ffc": -1,
+      "release": -2
+    },
+    "fps": 29.505553565030453,
+    "status": "REVIEW"
+  },
+  "behind_nets_60fps": {
+    "err_s": 0.9869,
+    "errors": {
+      "bfc": -21,
+      "ffc": -19,
+      "release": -18
+    },
+    "fps": 58.76993166287016,
+    "status": "REVIEW"
+  },
+  "broadcast_slowmo_left": {
+    "err_s": 8.4333,
+    "errors": {
+      "bfc": 159,
+      "ffc": 87,
+      "release": 7
+    },
+    "fps": 30.0,
+    "status": "REVIEW"
+  },
+  "front_oblique_60fps": {
+    "err_s": 0.0,
+    "errors": {
+      "bfc": 0,
+      "ffc": 0,
+      "release": 0
+    },
+    "fps": 59.94005994005994,
+    "status": "REVIEW"
+  },
+  "oblique_behind_60fps": {
+    "err_s": 0.0667,
+    "errors": {
+      "bfc": 1,
+      "ffc": 2,
+      "release": -1
+    },
+    "fps": 59.94005994005994,
+    "status": "PASS"
+  },
+  "side_c1_30fps": {
+    "err_s": 0.0335,
+    "errors": {
+      "bfc": 0,
+      "ffc": -1,
+      "release": 0
+    },
+    "fps": 29.84123937123985,
+    "status": "PASS"
+  },
+  "side_c2_30fps": {
+    "err_s": 0.0669,
+    "errors": {
+      "bfc": 1,
+      "ffc": 1,
+      "release": 0
+    },
+    "fps": 29.87995596638068,
+    "status": "PASS"
+  },
+  "side_c4_30fps": {
+    "err_s": 0.0999,
+    "errors": {
+      "bfc": 0,
+      "ffc": -2,
+      "release": 1
+    },
+    "fps": 30.03995881313823,
+    "status": "PASS"
+  },
+  "side_nets_30fps": {
+    "err_s": 0.1335,
+    "errors": {
+      "bfc": 1,
+      "ffc": -2,
+      "release": -1
+    },
+    "fps": 29.97,
+    "status": "PASS"
+  },
+  "side_nets_60fps": {
+    "err_s": 0.0667,
+    "errors": {
+      "bfc": 3,
+      "ffc": -1,
+      "release": 0
+    },
+    "fps": 59.94005994005994,
+    "status": "PASS"
+  },
+  "side_nets_follow_pan": {
+    "err_s": 0.1001,
+    "errors": {
+      "bfc": 4,
+      "ffc": -2,
+      "release": 0
+    },
+    "fps": 59.94,
+    "status": "REVIEW"
+  },
+  "synthetic_sample_120fps": {
+    "err_s": 0.0,
+    "errors": {
+      "bfc": 0,
+      "ffc": 0,
+      "release": 0
+    },
+    "fps": 120.0,
+    "status": "PASS"
+  }
+}

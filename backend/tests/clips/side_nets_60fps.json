@@ -1,0 +1,18 @@
+{
+  "file": "side_nets_60fps.mp4",
+  "view": "side-on",
+  "bowling_arm": "right",
+  "direction": "left_to_right",
+  "bfc_frame": 248,
+  "ffc_frame": 260,
+  "release_frame": 267,
+  "tolerance_frames": {
+    "bfc": 2,
+    "ffc": 3,
+    "release": 1
+  },
+  "slow_motion": null,
+  "height_cm": null,
+  "labelled_by": "frame-by-frame review",
+  "notes": "Phone, nets, VFR 58/59.94 fps. FFC: heel strike 258, foot flat 260."
+}

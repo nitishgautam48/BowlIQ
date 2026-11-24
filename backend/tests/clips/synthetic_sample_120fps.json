@@ -1,0 +1,18 @@
+{
+  "file": "synthetic_sample_120fps.mp4",
+  "view": "side-on",
+  "bowling_arm": "right",
+  "direction": "left_to_right",
+  "bfc_frame": 70,
+  "ffc_frame": 92,
+  "release_frame": 104,
+  "tolerance_frames": {
+    "bfc": 1,
+    "ffc": 1,
+    "release": 1
+  },
+  "slow_motion": null,
+  "height_cm": null,
+  "labelled_by": "frame-by-frame review",
+  "notes": "Rendered synthetic bowler; exact truth."
+}

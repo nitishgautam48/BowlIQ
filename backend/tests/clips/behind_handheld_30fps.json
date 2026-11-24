@@ -1,0 +1,21 @@
+{
+  "file": "behind_handheld_30fps.mp4",
+  "view": [
+    "behind",
+    "oblique"
+  ],
+  "bowling_arm": "right",
+  "direction": null,
+  "bfc_frame": 94,
+  "ffc_frame": 96,
+  "release_frame": 98,
+  "tolerance_frames": {
+    "bfc": 3,
+    "ffc": 3,
+    "release": 2
+  },
+  "slow_motion": null,
+  "height_cm": null,
+  "labelled_by": "frame-by-frame review",
+  "notes": "Portrait, handheld follow, behind/diagonal."
+}

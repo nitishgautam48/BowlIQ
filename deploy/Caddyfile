@@ -1,0 +1,16 @@
+# Example reverse proxy with automatic TLS. Replace the domains, then set
+# BOWLIQ_ALLOWED_HOSTS=api.example.com and BOWLIQ_CORS_ORIGINS=https://bowliq.example.com in backend/.env.
+api.example.com {
+	request_body {
+		max_size 410MB
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+	reverse_proxy 127.0.0.1:8000
+}
+bowliq.example.com {
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	reverse_proxy 127.0.0.1:3000
+}
