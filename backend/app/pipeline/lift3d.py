@@ -92,7 +92,7 @@ def _load():
         from app.pipeline.motionbert.DSTformer import DSTformer
         m = DSTformer(dim_in=3, dim_out=3, dim_feat=256, dim_rep=512, depth=5, num_heads=8, mlp_ratio=4, num_joints=17,
                       maxlen=243, att_fuse=True)
-        ck = torch.load(ensure_checkpoint(), map_location="cpu", weights_only=False)["model_pos"]
+        ck = torch.load(ensure_checkpoint(), map_location="cpu", weights_only=True)["model_pos"]
         m.load_state_dict({k.removeprefix("module."): v for k, v in ck.items()}, strict=True)
         dev = "cuda" if torch.cuda.is_available() else "cpu"
         m = m.to(dev).eval()
